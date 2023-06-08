@@ -1,6 +1,12 @@
 name: Rstudio
 on:
   workflow_dispatch:
+    inputs:
+      RSTUDIO_REF:
+        description: 'Git hash/branch/date to clone from RStudio'
+        type: string
+        required: true
+        default: 'main'
 jobs:
   builds:
     runs-on: ubuntu-latest
@@ -16,13 +22,19 @@ jobs:
         uses: actions/checkout@v3
         with: 
           repository: rstudio/rstudio
+          ref: ${{ inputs.RSTUDIO_REF }}
           path: rstudio
           fetch-depth: 450
+      - name: Get/Set Quarto branch
+        working-directory: rstudio
+        run: |
+          BRANCH=$(grep ' \+git clone --branch' dependencies/common/install-panmirror |sed "s/.*--branch \(\S*\).*/\1/")
+          echo "quarto_branch=${BRANCH:-main}" >> $GITHUB_ENV
       - name: Checkout Current
         uses: actions/checkout@v3
         with:
           repository: quarto-dev/quarto
-          ref: release/rstudio-mountain-hydrangea
+          ref: ${{env.quarto_branch}}
           path: rstudio/src/gwt/lib/quarto
 #Set Variables
       - name: Get/Set Files repo Version
@@ -56,6 +68,7 @@ jobs:
           echo "RStudio Version:${{env.rstudio_ver}}"
           echo "Rstudio Commit :${{env.rstudio_sha}}"
           echo "Quarto Version:${{env.quarto_ver}}"
+          echo "Quarto Branch :${{env.quarto_ver}}"
           echo "Quarto Commit :${{env.quarto_sha}}"
 #Setup Node-18
       - name: Setup node
@@ -73,7 +86,7 @@ jobs:
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
           esbuild_version="0.15.6"
-          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base-9999.patch panmirror-base.patch
+          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base-2023.06.0.421.patch panmirror-base.patch
           patch -p1 -i panmirror-base.patch
           sed -i "/eslint/d"  apps/panmirror/package.json packages/*/package.json
           sed -i "s/\"esbuild\":.*/\"esbuild\": \"${esbuild_version}\",/g" packages/build/package.json
@@ -111,7 +124,7 @@ jobs:
           body: |
             Files Repo: ${{env.file_repo_ver}} - ${{env.file_repo_sha}}
             RStudio: ${{env.rstudio_ver}} - [${{env.rstudio_sha}}](https://github.com/rstudio/rstudio/tree/${{env.rstudio_sha}})
-            Quarto:  ${{env.quarto_ver}} - [${{env.quarto_sha}}](https://github.com/quarto-dev/quarto/tree/${{env.quarto_sha}})
+            Quarto:  ${{env.quarto_ver}} - ${{env.quarto_branch}} - [${{env.quarto_sha}}](https://github.com/quarto-dev/quarto/tree/${{env.quarto_sha}})
             Electron Version: ${{env.electron_ver}}
           tag_name:  rstudio-${{env.rstudio_ver}}
           files: |
