@@ -81,7 +81,7 @@ jobs:
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
           rm -r packages/{eslint-config-custom,eslint-config-custom-server,ojs}
-          rm -r apps/{writer,writer-server,vscode,vscode-editor,vscode-markdownit,lsp}
+          rm -r apps/{writer,writer-server,vscode,vscode-editor,lsp}
       - name: Patch Quarto
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
