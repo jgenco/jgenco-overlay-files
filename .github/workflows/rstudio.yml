@@ -86,7 +86,7 @@ jobs:
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
           esbuild_version="0.15.6"
-          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base-2023.06.0.421.patch panmirror-base.patch
+          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base-2023.09.0.463.patch panmirror-base.patch
           patch -p1 -i panmirror-base.patch
           sed -i "/eslint/d"  apps/panmirror/package.json packages/*/package.json
           sed -i "s/\"esbuild\":.*/\"esbuild\": \"${esbuild_version}\",/g" packages/build/package.json
