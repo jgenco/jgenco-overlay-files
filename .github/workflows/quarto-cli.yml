@@ -1,0 +1,129 @@
+name: Quarto-cli
+on:
+  workflow_dispatch:
+     inputs:
+      release_type:
+        description: 'Release Type'
+        default: pre-release
+        type: choice
+        options:
+          - pre-release
+          - release
+          - live
+      version:
+       description: 'Version'
+       type: string
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+# Get Quarto Live
+      - name: Checkout Quarto-cli
+        if: ${{ inputs.release_type == 'live' }}
+        uses: actions/checkout@v3
+        with: 
+          repository: quarto-dev/quarto-cli
+          path: quarto-cli
+      - name: Setup Vars
+        if: ${{ inputs.release_type == 'live' }}
+        working-directory: quarto-cli
+        run: |
+          mkdir quarto-cli/deno_cache
+          echo "quarto_cli_ver=99.9.9_$(date +%Y%m%d)" >> $GITHUB_ENV
+          echo "quarto_cli_sha=`git rev-parse HEAD`"   >> $GITHUB_ENV
+# Get Quarto Version
+      - name: Download Quarto-cli
+        if: ${{ inputs.release_type != 'live' }}
+        run: |
+          echo "${{inputs.release_type}} = ${{ inputs.release_type }} ; ${{ inputs.version }}"
+          quarto_version="${{inputs.version}}"
+          #https://github.com/quarto-dev/quarto-cli/discussions/5423#discussioncomment-5837886
+          if [[ ${quarto_version} == "" ]];then
+            case ${{inputs.release_type}} in
+              "pre-release")
+                quarto_version=$(curl -sL https://api.github.com/repos/quarto-dev/quarto-cli/releases|jq "map(select(.prerelease == true ))[0].name" -r |tr -d 'v');;
+              "release")
+                quarto_version=$(curl -sL https://api.github.com/repos/quarto-dev/quarto-cli/releases|jq "map(select(.prerelease == false))[0].name" -r |tr -d 'v');;
+               *)
+                die;;
+            esac
+          fi
+          wget https://github.com/quarto-dev/quarto-cli/archive/refs/tags/v${quarto_version}.tar.gz
+          mkdir quarto-cli
+          tar xaf v${quarto_version}.tar.gz --strip-components=1 -C quarto-cli
+          mkdir quarto-cli/deno_cache
+          echo "quarto_cli_ver=${quarto_version}"                                             >> $GITHUB_ENV
+          echo "quarto_cli_sha=$(gunzip -c v${quarto_version}.tar.gz |git get-tar-commit-id)" >> $GITHUB_ENV
+# Lets Go!
+      - name: Download/Unpack Deno
+        if: true
+        run: |
+          deno_version=$(grep  " DENO=" quarto-cli/configuration|sed "s/export DENO=v//")
+          echo "deno_ver=${deno_version}" >> $GITHUB_ENV
+          deno_url="https://github.com/denoland/deno/releases/download/v${deno_version}/deno-x86_64-unknown-linux-gnu.zip"
+          wget ${deno_url}
+          unzip deno-x86_64-unknown-linux-gnu.zip
+          echo "deno_exe=${GITHUB_WORKSPACE}/deno" >> $GITHUB_ENV
+
+#Build Quarto like normal
+      - name: Build Quarto
+        if: true
+        working-directory: quarto-cli
+        run: |
+          pushd src/webui/quarto-preview
+          #overlay dirs
+          ln -s ../../../deno_cache x86_64
+          #stop quarto build process from building quarto-preview - if needed in the future
+          rm deno.lock build.ts
+          touch build.ts
+          popd
+
+          pushd package/src
+          #Note this will set DENO_DIR to src/webui/quarto-preview/x86_64 and package/src/x86_64/
+          #overlay dirs
+          ln -s ../../deno_cache x86_64
+          #./configure probably does this stuff
+          ln -s pkg-working ../dist
+          export DENO_DIR=x86_64
+          QUARTO_DENO="${deno_exe}" ./quarto-bld prepare-dist --set-version ${{env.quarto_cli_ver}} --log-level info
+          #echo "deno_exe=${GITHUB_WORKSPACE}/quarto-cli/package/pkg-working/bin/tools/x86_64/deno" >> $GITHUB_ENV
+          popd
+
+# Build cache directory
+      - name: Build cache directory
+        if: true
+        working-directory: quarto-cli
+        run: |
+          #DENO_DIR="src/resources/deno_std/cache"
+          DENO_DIR="cache" ${deno_exe} cache --unstable-ffi --lock src/resources/deno_std/deno_std.lock package/scripts/deno_std/deno_std.ts
+
+# Build vendor file
+      - name: Build quarto-preview
+        if: false
+        working-directory: quarto-cli/src/webui/quarto-preview
+        run: |
+          #overlay dirs
+          [[ ! -L x86_64 ]] && ln -s ../../../quarto-cli/deno_cache x86_64
+          DENO_DIR=x86_64 ${deno_exe} run -A build.ts
+          find x86_64/npm -type f -name "esbuild*" -size +1M -delete -print
+
+#Build release
+      - name: Build release files
+        working-directory: quarto-cli
+        run: |
+          tar caf /tmp/quarto-cli-${{env.quarto_cli_ver}}-deno_vendor.tar.xz cache/deps deno_cache/deps #deno_cache/npm
+
+# Upload Files
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Quarto-Cli ${{env.rstudio_ver}}
+          body: |
+            Quarto-cli:  ${{env.quarto_cli_ver}} - [${{env.quarto_cli_sha}}](https://github.com/quarto-dev/quarto-cli/tree/${{env.quarto_cli_sha}})
+            Deno Version: ${{env.deno_ver}}
+          tag_name:  quarto-cli-${{env.quarto_cli_ver}}
+          files: |
+            /tmp/quarto-cli-${{env.quarto_cli_ver}}-deno_vendor.tar.xz
+            
