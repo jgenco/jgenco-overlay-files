@@ -119,7 +119,7 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Quarto-Cli ${{env.rstudio_ver}}
+          name: Quarto-Cli ${{env.quarto_cli_ver}}
           body: |
             Quarto-cli:  ${{env.quarto_cli_ver}} - [${{env.quarto_cli_sha}}](https://github.com/quarto-dev/quarto-cli/tree/${{env.quarto_cli_sha}})
             Deno Version: ${{env.deno_ver}}
