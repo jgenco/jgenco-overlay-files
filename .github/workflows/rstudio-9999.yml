@@ -9,10 +9,12 @@ on:
         default: 'main'
 jobs:
   builds:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Install libfontconfig1-dev
+        run: sudo apt install -y libfontconfig1-dev
 #Checkout git sources
       - name: Checkout Current
         uses: actions/checkout@v3
@@ -72,9 +74,9 @@ jobs:
           echo "Quarto Commit :${{env.quarto_sha}}"
 #Setup Node-18
       - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
 # Build Quarto
 # This was inspired by  https://src.fedoraproject.org/rpms/rstudio
       - name: Remove non-Panmirror folders
