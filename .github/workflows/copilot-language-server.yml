@@ -1,0 +1,54 @@
+name: copilot-language-server
+on:
+  workflow_dispatch:
+    inputs:
+      COPILOT_VER:
+        description: 'COPILOT version'
+        type: string
+        required: true
+      SQLITE3_VER:
+        description: 'SQLITE3 node version'
+        type: string
+        required: true
+      KERBEROS_VER:
+        description: 'Kerberos node version'
+        type: string
+        required: true
+jobs:
+  builds:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Create directory
+        run: mkdir copilot_${{inputs.COPILOT_VER}}_deps
+      - name: Install Copilot deps
+        working-directory: copilot_${{inputs.COPILOT_VER}}_deps
+        run: |
+          npm install sqlite3@${{ inputs.SQLITE3_VER }} kerberos@${{ inputs.KERBEROS_VER }}
+      - name: Remove cruft
+        working-directory: copilot_${{inputs.COPILOT_VER}}_deps
+        run: |
+          rm node_modules/*/build/Release/*.node
+          rm node_modules/sqlite3/deps/*.tar.gz
+      - name: Packup
+        run: |
+          tar caf /tmp/copilot-language-server-${{inputs.COPILOT_VER}}_deps.tar.xz copilot_${{inputs.COPILOT_VER}}_deps
+# Upload Files
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+          name: copilot-language-server ${{inputs.COPILOT_VER}}
+          body: |
+            Copilot Language Server: [${{inputs.COPILOT_VER}}](https://github.com/github/copilot-language-server-release/releases/tag/${{inputs.COPILOT_VER}})
+            sqlite3: ${{ inputs.SQLITE3_VER }}
+            kerberos: ${{ inputs.KERBEROS_VER }}
+          tag_name:  copilot-language-server-${{inputs.COPILOT_VER}}
+          files: |
+            /tmp/copilot-language-server-${{inputs.COPILOT_VER}}_deps.tar.xz
+
+
