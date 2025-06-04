@@ -1,0 +1,41 @@
+name: deno
+on:
+  workflow_dispatch:
+    inputs:
+      DENO_VER:
+        description: 'Deno version'
+        type: string
+        required: true
+jobs:
+  builds:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download/Extract deno
+        run: |
+          wget https://github.com/denoland/deno/archive/refs/tags/v${{inputs.DENO_VER}}.tar.gz
+          tar xaf v${{inputs.DENO_VER}}.tar.gz
+      - name: Install pycargoebuild
+        working-directory: deno-${{inputs.DENO_VER}}/cli
+        run: |
+          pip install pycargoebuild
+          wget https://github.com/gentoo/gentoo/raw/refs/heads/master/metadata/license-mapping.conf
+          echo "DIST_DIR=${GITHUB_WORKSPACE}/pycargo" >> $GITHUB_ENV
+      - name: Run Pycargoebuild
+        working-directory: deno-${{inputs.DENO_VER}}/cli
+        run: |
+          python -m pycargoebuild -d ${{env.DIST_DIR}} -cf -l license-mapping.conf
+          echo "Deno - ${{inputs.DENO_VER}}" >> ${{env.DIST_DIR}}/body.txt
+          echo '```' >> ${{env.DIST_DIR}}/body.txt
+          grep -Pzo '# Dependent crate licenses.*\nLICENSE\+="([^"]*\n?)+"\n' deno-${{inputs.DENO_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
+          echo '```' >> ${{env.DIST_DIR}}/body.txt
+# Upload Files
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Deno ${{inputs.DENO_VER}}
+          body_path: ${{env.DIST_DIR}}/body.txt
+          tag_name:  deno-${{inputs.DENO_VER}}
+          files: |
+            ${{env.DIST_DIR}}/deno-${{inputs.DENO_VER}}-crates.tar.xz
