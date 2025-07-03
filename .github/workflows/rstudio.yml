@@ -13,6 +13,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Install libfontconfig1-dev
+        run: sudo apt install -y libfontconfig1-dev
 #Checkout git sources
       - name: Checkout Current
         uses: actions/checkout@v3
@@ -58,7 +60,7 @@ jobs:
       - name: Get/Set Quarto Version
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
-          echo "quarto_ver=`git branch --show-current`" >> $GITHUB_ENV
+          echo "quarto_ver=`git log -n 1 --date=format:"%Y%m%d" --format="%ad"`" >> $GITHUB_ENV
           echo "quarto_sha=`git rev-parse HEAD`"        >> $GITHUB_ENV
 
       - name: Print Version info
@@ -72,9 +74,9 @@ jobs:
           echo "Quarto Commit :${{env.quarto_sha}}"
 #Setup Node-18
       - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
 # Build Quarto
 # This was inspired by  https://src.fedoraproject.org/rpms/rstudio
       - name: Remove non-Panmirror folders
@@ -86,7 +88,7 @@ jobs:
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
           esbuild_version="0.15.6"
-          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base-2023.09.0.463.patch panmirror-base.patch
+          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base.patch panmirror-base.patch
           patch -p1 -i panmirror-base.patch
           sed -i "/eslint/d"  apps/panmirror/package.json packages/*/package.json
           sed -i "s/\"esbuild\":.*/\"esbuild\": \"${esbuild_version}\",/g" packages/build/package.json
@@ -97,11 +99,11 @@ jobs:
       - name: Clean up Quarto-Panmirror node_modules
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
-          rm node_modules/vite/node_modules/esbuild-linux-64/bin/esbuild node_modules/esbuild-linux-64/bin/esbuild
+          find node_modules packages/*/node_modules -name "esbuild" -size +1M -delete -print
           echo "Deleteing binaries in panmirror"
-          find node_modules -name "*.node" -delete -print
-          find node_modules -name "*.o" -delete -print
-          tar caf /tmp/rstudio-${{env.rstudio_ver}}-panmirror-node_modules.tar.xz node_modules/ panmirror.patch panmirror-base.patch
+          find node_modules packages/*/node_modules -name "*.node" -delete -print
+          find node_modules packages/*/node_modules -name "*.o" -delete -print
+          XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-panmirror-node_modules.tar.xz node_modules/ packages/*/node_modules panmirror.patch panmirror-base.patch
 # Build RStudio Electron
       - name: Build Electron node_modules
         working-directory: rstudio/src/node/desktop
@@ -115,7 +117,7 @@ jobs:
           find node_modules/ -name "*.o" -delete -print
       - name: Make Rstudio-Electron node_modules tarball
         working-directory: rstudio/src/node/desktop
-        run: tar caf /tmp/rstudio-${{env.rstudio_ver}}-electron-node_modules.tar.xz node_modules/
+        run: XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-electron-node_modules.tar.xz node_modules/
 # Upload Files
       - name: Release
         uses: softprops/action-gh-release@v1
