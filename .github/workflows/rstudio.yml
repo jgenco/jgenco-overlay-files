@@ -90,9 +90,9 @@ jobs:
           esbuild_version="0.15.6"
           cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base.patch panmirror-base.patch
           patch -p1 -i panmirror-base.patch
-          sed -i "/eslint/d"  apps/panmirror/package.json packages/*/package.json
+          sed -i "/eslint/d"  apps/{panmirror,vscode-markdownit}/package.json packages/*/package.json
           sed -i "s/\"esbuild\":.*/\"esbuild\": \"${esbuild_version}\",/g" packages/build/package.json
-          git diff package.json packages/*/package.json apps/panmirror/package.json > panmirror.patch
+          git diff package.json packages/*/package.json apps/{panmirror,vscode-markdownit}/package.json > panmirror.patch
       - name: Build Quarto
         working-directory: rstudio/src/gwt/lib/quarto
         run: yarn install
@@ -103,7 +103,7 @@ jobs:
           echo "Deleteing binaries in panmirror"
           find node_modules packages/*/node_modules -name "*.node" -delete -print
           find node_modules packages/*/node_modules -name "*.o" -delete -print
-          XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-panmirror-node_modules.tar.xz node_modules/ packages/*/node_modules panmirror.patch panmirror-base.patch
+          XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-panmirror-node_modules.tar.xz node_modules/ packages/*/node_modules apps/panmirror/node_modules panmirror.patch panmirror-base.patch
 # Build RStudio Electron
       - name: Build Electron node_modules
         working-directory: rstudio/src/node/desktop

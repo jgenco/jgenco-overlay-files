@@ -1,31 +1,29 @@
 Edited slightly from https://src.fedoraproject.org/rpms/rstudio/blob/rawhide/f/panmirror-cleanup.patch
-
 --- a/package.json
 +++ b/package.json
-@@ -4,22 +4,6 @@
+@@ -4,8 +4,7 @@
    "private": true,
    "workspaces": [
      "apps/*",
 -    "packages/*",
 -    "packages/ojs/*"
--  ],
--  "scripts": {
--    "build": "turbo run build",
--    "dev-writer": "turbo run dev --filter writer*",
--    "dev-vscode": "turbo run dev --filter quarto...",
--    "lint": "turbo run lint",
--    "format": "prettier --write \"**/*.{ts,tsx}\"",
--    "watch": "concurrently 'tsc --watch --noEmit --project apps/writer/tsconfig.json' 'tsc --watch --noEmit  --project packages/writer-server/tsconfig.json'"
++    "packages/*"
+   ],
+   "scripts": {
+     "build": "turbo run build",
+@@ -17,13 +16,5 @@
+     "lint": "turbo run lint",
+     "format": "prettier --write \"**/*.{ts,tsx}\"",
+     "watch": "concurrently 'tsc --watch --noEmit --project apps/writer/tsconfig.json' 'tsc --watch --noEmit  --project packages/writer-server/tsconfig.json'"
 -  },
 -  "devDependencies": {
+-    "@vscode/test-cli": "^0.0.11",
 -    "concurrently": "^7.5.0",
 -    "eslint": "^7.32.0",
 -    "eslint-config-custom": "*",
 -    "prettier": "^2.5.1",
 -    "turbo": "^1.8.5"
--  }
-+    "packages/*"
-+  ]
+   }
  }
 --- a/packages/editor/package.json
 +++ b/packages/editor/package.json
