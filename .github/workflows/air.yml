@@ -15,7 +15,7 @@ jobs:
       - name: Download/Extract air
         run: |
           wget https://github.com/posit-dev/air/archive/refs/tags/${{inputs.AIR_VER}}.tar.gz
-          tar xaf v${{inputs.AIR_VER}}.tar.gz
+          tar xaf ${{inputs.AIR_VER}}.tar.gz
       - name: Install pycargoebuild
         working-directory: air-${{inputs.AIR_VER}}/crates/air
         run: |
