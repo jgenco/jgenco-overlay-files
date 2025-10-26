@@ -111,6 +111,7 @@ jobs:
       - name: Clean up node_modules
         working-directory: rstudio/src/node/desktop
         run: |
+          sed -i "s/VERSION 3.5/VERSION 3.5..3.10/" node_modules/nan/CMakeLists.txt
           rm -r node_modules/electron/dist/*
           echo "Deleteing binaries in electron"
           find node_modules/ -name "*.node" -delete -print
