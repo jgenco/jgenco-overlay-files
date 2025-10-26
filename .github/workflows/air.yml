@@ -1,0 +1,46 @@
+name: air
+on:
+  workflow_dispatch:
+    inputs:
+      AIR_VER:
+        description: 'Air version'
+        type: string
+        required: true
+jobs:
+  builds:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download/Extract air
+        run: |
+          wget https://github.com/posit-dev/air/archive/refs/tags/v${{inputs.AIR_VER}}.tar.gz
+          tar xaf v${{inputs.AIR_VER}}.tar.gz
+      - name: Install pycargoebuild
+        working-directory: air-${{inputs.AIR_VER}}/crates/air
+        run: |
+          pip install pycargoebuild
+          wget https://github.com/gentoo/gentoo/raw/refs/heads/master/metadata/license-mapping.conf
+          echo "DIST_DIR=${GITHUB_WORKSPACE}/pycargo" >> $GITHUB_ENV
+      - name: Run Pycargoebuild
+        working-directory: air-${{inputs.AIR_VER}}/crates/air
+        run: |
+          python -m pycargoebuild -d ${{env.DIST_DIR}} -cf -l license-mapping.conf
+          echo "Air - ${{inputs.AIR_VER}}" >> ${{env.DIST_DIR}}/body.txt
+
+          echo '```' >> ${{env.DIST_DIR}}/body.txt
+          grep -Pzo 'declare -A GIT_CRATES=\(\n(\t\[.*\n)+\)' air-${{inputs.AIR_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
+          echo '```' >> ${{env.DIST_DIR}}/body.txt
+
+          echo '```' >> ${{env.DIST_DIR}}/body.txt
+          grep -Pzo '# Dependent crate licenses.*\nLICENSE\+="([^"]*\n?)+"\n' air-${{inputs.AIR_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
+          echo '```' >> ${{env.DIST_DIR}}/body.txt
+# Upload Files
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Air ${{inputs.AIR_VER}}
+          body_path: ${{env.DIST_DIR}}/body.txt
+          tag_name:  air-${{inputs.AIR_VER}}
+          files: |
+            ${{env.DIST_DIR}}/air-${{inputs.AIR_VER}}-crates.tar.xz
