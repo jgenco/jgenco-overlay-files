@@ -14,6 +14,10 @@ on:
         description: 'Kerberos node version'
         type: string
         required: true
+      VSCODE_POL_WAT_VER:
+        description: '@vscode/policy-watcher node version'
+        type: string
+        required: true
 jobs:
   builds:
     runs-on: ubuntu-latest
@@ -29,11 +33,12 @@ jobs:
       - name: Install Copilot deps
         working-directory: copilot_${{inputs.COPILOT_VER}}_deps
         run: |
-          npm install sqlite3@${{ inputs.SQLITE3_VER }} kerberos@${{ inputs.KERBEROS_VER }}
+          npm install sqlite3@${{ inputs.SQLITE3_VER }} kerberos@${{ inputs.KERBEROS_VER }} @vscode/policy-watcher@${{ inputs.VSCODE_POL_WAT_VER }}
       - name: Remove cruft
         working-directory: copilot_${{inputs.COPILOT_VER}}_deps
         run: |
           rm node_modules/*/build/Release/*.node
+          rm node_modules/@vscode/*/build/Release{,/obj.target}/vscode-policy-watcher.node
           rm node_modules/sqlite3/deps/*.tar.gz
       - name: Packup
         run: |
@@ -47,6 +52,7 @@ jobs:
             Copilot Language Server: [${{inputs.COPILOT_VER}}](https://github.com/github/copilot-language-server-release/releases/tag/${{inputs.COPILOT_VER}})
             sqlite3: ${{ inputs.SQLITE3_VER }}
             kerberos: ${{ inputs.KERBEROS_VER }}
+            @vscode/policy-watcher: ${{ inputs.VSCODE_POL_WAT_VER }}
           tag_name:  copilot-language-server-${{inputs.COPILOT_VER}}
           files: |
             /tmp/copilot-language-server-${{inputs.COPILOT_VER}}_deps.tar.xz
