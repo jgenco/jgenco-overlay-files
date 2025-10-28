@@ -30,11 +30,11 @@ jobs:
 
           echo '```' >> ${{env.DIST_DIR}}/body.txt
           grep -Pzo 'declare -A GIT_CRATES=\(\n(\t\[.*\n)+\)' air-${{inputs.AIR_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
-          echo '```' >> ${{env.DIST_DIR}}/body.txt
+          echo -e '\n```' >> ${{env.DIST_DIR}}/body.txt
 
           echo '```' >> ${{env.DIST_DIR}}/body.txt
           grep -Pzo '# Dependent crate licenses.*\nLICENSE\+="([^"]*\n?)+"\n' air-${{inputs.AIR_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
-          echo '```' >> ${{env.DIST_DIR}}/body.txt
+          echo -e '\n```' >> ${{env.DIST_DIR}}/body.txt
 # Upload Files
       - name: Publish
         uses: softprops/action-gh-release@v1
