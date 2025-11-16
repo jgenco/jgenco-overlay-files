@@ -30,8 +30,8 @@ jobs:
       - name: Get/Set Quarto branch
         working-directory: rstudio
         run: |
-          BRANCH=$(grep '^ \+git clone --branch' dependencies/common/install-panmirror |sed "s/.*--branch \(\S*\).*/\1/")
-          echo "quarto_branch=${BRANCH:-main}" >> $GITHUB_ENV
+          quarto_branch=$(grep '^ \+git clone --branch' dependencies/common/install-panmirror |grep -o "branch [a-z/-]\+"|sed "s/branch //")
+          echo "quarto_branch=${quarto_branch:-main}" >> $GITHUB_ENV
       - name: Checkout Current
         uses: actions/checkout@v3
         with:
@@ -51,16 +51,19 @@ jobs:
           my_pv="$(<version/CALENDAR_VERSION).0."
           flower="$(<version/RELEASE)"
           flower=${flower,,}
+          [[ $flower =~ ^[a-z\ ]+$ ]]
           base_commit=$(< version/base_commit/${flower/ /-}.BASE_COMMIT)
+          [[ $base_commit =~ ^[0-9a-f]+$ ]]
           my_pv+="$(git rev-list ${base_commit}..HEAD --count)"
           echo "rstudio_ver=${my_pv}"             >> $GITHUB_ENV
           echo "rstudio_sha=`git rev-parse HEAD`" >> $GITHUB_ENV
 
           echo electron_ver=$(jq ".devDependencies.electron" src/node/desktop/package.json) >> $GITHUB_ENV
+          echo body_file="/tmp/body.txt" >> $GITHUB_ENV
       - name: Get/Set Quarto Version
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
-          echo "quarto_ver=`git log -n 1 --date=format:"%Y%m%d" --format="%ad"`" >> $GITHUB_ENV
+          echo "quarto_date=`git log -n 1 --date=format:"%Y%m%d" --format="%ad"`" >> $GITHUB_ENV
           echo "quarto_sha=`git rev-parse HEAD`"        >> $GITHUB_ENV
 
       - name: Print Version info
@@ -69,10 +72,39 @@ jobs:
           echo "Files Repo Commit :${{env.file_repo_sha}}"
           echo "RStudio Version:${{env.rstudio_ver}}"
           echo "Rstudio Commit :${{env.rstudio_sha}}"
-          echo "Quarto Version:${{env.quarto_ver}}"
-          echo "Quarto Branch :${{env.quarto_ver}}"
+          echo "Quarto Date   :${{env.quarto_date}}"
+          echo "Quarto Branch :${{env.quarto_branch}}"
           echo "Quarto Commit :${{env.quarto_sha}}"
-#Setup Node-18
+      - name: Build Body Text
+        working-directory: rstudio
+        run: |
+            {
+            echo "Files Repo: ${{env.file_repo_ver}} - ${{env.file_repo_sha}}"
+            echo "RStudio: ${{env.rstudio_ver}} - [${{env.rstudio_sha}}](https://github.com/rstudio/rstudio/tree/${{env.rstudio_sha}})"
+            echo "Quarto:  ${{env.quarto_date}} - ${{env.quarto_branch}} - [${{env.quarto_sha}}](https://github.com/quarto-dev/quarto/tree/${{env.quarto_sha}})"
+            echo "Electron Version: ${{env.electron_ver}}"
+
+            echo -e '\n```'
+
+            echo "P_PREBUILT=\"\${PN}-${{env.rstudio_ver}}\""
+            echo "DAILY_COMMIT=\"${{env.rstudio_sha}}\""
+            echo "ELECTRON_VERSION=\"${{env.electron_ver}}\""
+            echo "QUARTO_COMMIT=\"${{env.quarto_sha}}\""
+            echo "QUARTO_BRANCH=\"${{env.quarto_branch}}\""
+            echo "QUARTO_DATE=\"${{env.quarto_date}}\""
+            echo "QUARTO_CLI_VER=\"$(grep "^QUARTO_VERSION=" dependencies/common/install-quarto |grep -Eo "[0-9.]+")\""
+
+            echo "GWT_VERSION=\"$(grep "^GWT_VERSION=" dependencies/common/install-gwt |grep -Eo "[0-9.a-z\-]+")\""
+
+            echo "#WEBSOCKETPP_VERSION=$(grep -Pzo 'dependency\(WEBSOCKETPP([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep VERSION|grep -o "\"[0-9.]\+\"")"
+            echo "WEBSOCKETPP_COMMIT=$(grep -Pzo 'dependency\(WEBSOCKETPP([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep REVISION|grep -o "\"[a-f0-9]\+\"")"
+            echo "#RAPIDJSON_VERSION=$(grep -Pzo 'dependency\(RAPIDJSON([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep VERSION|grep -o "\"[0-9.]\+\"")"
+            echo "RAPIDJSON_COMMIT=$(grep -Pzo 'dependency\(RAPIDJSON([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep REVISION|grep -o "\"[a-f0-9]\+\"")"
+            echo "#COPILOT_VERSION=$(grep "^COPILOT_VERSION=" dependencies/common/install-copilot-language-server |grep -Eo "\"[0-9.]+\"")"
+
+            echo -e '\n```'
+            } >> ${{env.body_file}}
+#Setup Node-22
       - name: Setup node
         uses: actions/setup-node@v4
         with:
@@ -88,7 +120,7 @@ jobs:
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
           esbuild_version="0.15.6"
-          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base.patch panmirror-base.patch
+          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/{panmirror-base,node-addon-api.clang21}.patch .
           patch -p1 -i panmirror-base.patch
           sed -i "/eslint/d"  apps/{panmirror,vscode-markdownit}/package.json packages/*/package.json
           sed -i "s/\"esbuild\":.*/\"esbuild\": \"${esbuild_version}\",/g" packages/build/package.json
@@ -99,6 +131,7 @@ jobs:
       - name: Clean up Quarto-Panmirror node_modules
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
+          patch -p1 -i node-addon-api.clang21.patch
           find node_modules packages/*/node_modules -name "esbuild" -size +1M -delete -print
           echo "Deleteing binaries in panmirror"
           find node_modules packages/*/node_modules -name "*.node" -delete -print
@@ -124,11 +157,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: Rstudio ${{env.rstudio_ver}}
-          body: |
-            Files Repo: ${{env.file_repo_ver}} - ${{env.file_repo_sha}}
-            RStudio: ${{env.rstudio_ver}} - [${{env.rstudio_sha}}](https://github.com/rstudio/rstudio/tree/${{env.rstudio_sha}})
-            Quarto:  ${{env.quarto_ver}} - ${{env.quarto_branch}} - [${{env.quarto_sha}}](https://github.com/quarto-dev/quarto/tree/${{env.quarto_sha}})
-            Electron Version: ${{env.electron_ver}}
+          body_path: ${{env.body_file}}
           tag_name:  rstudio-${{env.rstudio_ver}}
           files: |
             /tmp/rstudio-${{env.rstudio_ver}}-panmirror-node_modules.tar.xz
