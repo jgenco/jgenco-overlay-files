@@ -48,8 +48,8 @@ jobs:
       - name: Get/Set RStudio Version
         working-directory: rstudio
         run: |
-          my_pv="$(<version/CALENDAR_VERSION).0."
-          flower="$(<version/RELEASE)"
+          my_pv="$(grep -Eo "[0-9.]+" version/CALENDAR_VERSION).$(grep -o "[0-9]" version/PATCH )."
+          flower="$(grep -Eo "^[A-Za-z\ ]+$" version/RELEASE)"
           flower=${flower,,}
           [[ $flower =~ ^[a-z\ ]+$ ]]
           base_commit=$(< version/base_commit/${flower/ /-}.BASE_COMMIT)
@@ -144,7 +144,7 @@ jobs:
       - name: Clean up node_modules
         working-directory: rstudio/src/node/desktop
         run: |
-          sed -i "s/VERSION 3.5/VERSION 3.5..3.10/" node_modules/nan/CMakeLists.txt
+          sed -i "s/VERSION 3.5/VERSION 3.5...3.10/" node_modules/nan/CMakeLists.txt
           rm -r node_modules/electron/dist/*
           echo "Deleteing binaries in electron"
           find node_modules/ -name "*.node" -delete -print
