@@ -14,7 +14,9 @@ jobs:
       contents: write
     steps:
       - name: Install libfontconfig1-dev
-        run: sudo apt install -y libfontconfig1-dev
+        run: |
+          sudo apt-get update
+          sudo apt install -y libfontconfig1-dev
 #Checkout git sources
       - name: Checkout Current
         uses: actions/checkout@v3
