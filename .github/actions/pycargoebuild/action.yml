@@ -1,0 +1,84 @@
+name: 'Pycargoebuild'
+description: 'Run pycargoebuild Upload crates tarball'
+inputs:
+  cargo-root-path:
+    description: 'Path where Cargo.toml lives'
+    required: true
+  dist-directory:
+    description: 'Location used to store crates'
+    required: false
+    default: ''
+  body-path:
+    description: 'Location used to store body for updload'
+    required: false
+    default: ''
+runs:
+  using: "composite"
+  steps:
+    - name: Install pycargoebuild
+      shell: bash
+      run: |
+        pip install pycargoebuild
+        wget https://github.com/gentoo/gentoo/raw/refs/heads/master/metadata/license-mapping.conf
+
+        DIST_DIR=${{ inputs.dist-directory }}
+        DIST_DIR=${DIST_DIR:-${GITHUB_WORKSPACE}/pycargo}
+
+        BODY_TXT_FILE=${{ inputs.body-path }}
+
+        mkdir -p ${DIST_DIR}        
+
+        echo "CRATE_PATH=${{ inputs.cargo-root-path }}" >> $GITHUB_ENV
+        echo "DIST_DIR=${DIST_DIR}" >> $GITHUB_ENV
+        echo "BODY_TXT_FILE=${BODY_TXT_FILE:-${GITHUB_WORKSPACE}/body.txt}" >> $GITHUB_ENV
+
+    - name: Set Pycargoebuild VARS
+      working-directory: ${{env.CRATE_PATH}}
+      shell: bash
+      run: |
+        CRATE_NAME=$(grep "^name = " -m1 Cargo.toml |grep -Eo '"[A-Za-z_0-9-]+"'|tr -d \")
+        CRATE_VER=$(grep "^version = " -m1 Cargo.toml |grep -Eo "[0-9.]+")
+        CRATE_NV="${CRATE_NAME}-${CRATE_VER}"
+
+        echo "CRATE_NAME=${CRATE_NAME}" >> $GITHUB_ENV
+        echo "CRATE_VER=${CRATE_VER}"    >> $GITHUB_ENV
+        echo "CRATE_NV=${CRATE_NV}"     >> $GITHUB_ENV
+
+        echo "EBUILD_FILE=${{env.DIST_DIR}}/${CRATE_NV}.ebuild" >> $GITHUB_ENV
+        echo "CRATES_FILE=${{env.DIST_DIR}}/${CRATE_NV}-crates.tar.xz" >> $GITHUB_ENV
+
+    - name: Run Pycargoebuild
+      working-directory: ${{env.CRATE_PATH}}
+      shell: bash
+      run: |
+        python -m pycargoebuild -d ${{env.DIST_DIR}} -cf -l ${GITHUB_WORKSPACE}/license-mapping.conf -o ${{env.EBUILD_FILE}} --crate-tarball-path ${{env.CRATES_FILE}} | tee stdout
+
+    - name: Build Pycargo Body
+      shell: bash
+      run: |
+        echo "${{env.CRATE_NAME}} - ${{env.CRATE_VER}}" >> ${{env.BODY_TXT_FILE}}
+
+        if grep -q GIT_CRATES ${{env.EBUILD_FILE}};then
+          echo '```' >> ${{env.BODY_TXT_FILE}}
+          grep -Pzo 'declare -A GIT_CRATES=\(\n(\t\[.*\n)+\)' ${{env.EBUILD_FILE}} | sed 's/\x00//' >> ${{env.BODY_TXT_FILE}}
+          echo -e '\n```' >> ${{env.BODY_TXT_FILE}}
+        fi
+
+        echo '```' >> ${{env.BODY_TXT_FILE}}
+        grep -Pzo '# Dependent crate licenses.*\nLICENSE\+="([^"]*\n?)+"\n' ${{env.EBUILD_FILE}} | sed 's/\x00//' >> ${{env.BODY_TXT_FILE}}
+        echo -e '\n```' >> ${{env.BODY_TXT_FILE}}
+
+        if grep -q WARNING ${{env.CRATE_PATH}}/stdout;then
+          echo '```' >> ${{env.BODY_TXT_FILE}}
+          grep WARNING ${{env.CRATE_PATH}}/stdout >> ${{env.BODY_TXT_FILE}}
+          echo -e '\n```' >> ${{env.BODY_TXT_FILE}}
+        fi
+# Upload Files
+    - name: Publish
+      uses: softprops/action-gh-release@v2
+      with:
+        name: ${{env.CRATE_NAME}} ${{env.CRATE_VER}}
+        body_path: ${{env.BODY_TXT_FILE}}
+        tag_name:  ${{env.CRATE_NV}}
+        files: |
+          ${{env.CRATES_FILE}}
