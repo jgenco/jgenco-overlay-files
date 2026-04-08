@@ -21,25 +21,14 @@ jobs:
         run: |
           wget https://github.com/typst/typst/archive/refs/tags/v${{inputs.TYPST_VER}}.tar.gz
           tar xaf v${{inputs.TYPST_VER}}.tar.gz
-      - name: Run Pycargoebuild
-        working-directory: typst-${{inputs.TYPST_VER}}/crates/typst-cli
-        run: |
-          python -m pycargoebuild -d ${{env.DIST_DIR}} -cf -l ${GITHUB_WORKSPACE}/license-mapping.conf
-          echo "Typst - ${{inputs.TYPST_VER}}" >> ${{env.DIST_DIR}}/body.txt
-
-          echo '```' >> ${{env.DIST_DIR}}/body.txt
-          grep -Pzo 'declare -A GIT_CRATES=\(\n(\t\[.*\n)+\)' typst-cli-${{inputs.TYPST_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
-          echo -e '\n```' >> ${{env.DIST_DIR}}/body.txt
-
-          echo '```' >> ${{env.DIST_DIR}}/body.txt
-          grep -Pzo '# Dependent crate licenses.*\nLICENSE\+="([^"]*\n?)+"\n' typst-cli-${{inputs.TYPST_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
-          echo -e '\n```' >> ${{env.DIST_DIR}}/body.txt
-# Upload Files
-      - name: Publish
-        uses: softprops/action-gh-release@v1
+      #Checkout git sources
+      - name: Checkout Current
+        uses: actions/checkout@v5
         with:
-          name: Typst ${{inputs.TYPST_VER}}
-          body_path: ${{env.DIST_DIR}}/body.txt
-          tag_name:  typst-${{inputs.TYPST_VER}}
-          files: |
-            ${{env.DIST_DIR}}/typst-cli-${{inputs.TYPST_VER}}-crates.tar.xz
+          path: file_repo
+      - name: Pycargobuild
+        uses: ./file_repo/.github/actions/pycargoebuild
+        with:
+          cargo-root-path: "typst-${{inputs.TYPST_VER}}/crates/typst-cli"
+
+
