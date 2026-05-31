@@ -108,9 +108,9 @@ jobs:
             } >> ${{env.body_file}}
 #Setup Node-22
       - name: Setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
 # Build Quarto
 # This was inspired by  https://src.fedoraproject.org/rpms/rstudio
       - name: Remove non-Panmirror folders
