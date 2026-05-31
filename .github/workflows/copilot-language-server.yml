@@ -6,12 +6,12 @@ on:
         description: 'COPILOT version'
         type: string
         required: true
-      SQLITE3_VER:
-        description: 'SQLITE3 node version'
-        type: string
-        required: true
       KERBEROS_VER:
         description: 'Kerberos node version'
+        type: string
+        required: true
+      PARCEL_WAT_VER:
+        description: '@parcel/watcher node version'
         type: string
         required: true
       VSCODE_POL_WAT_VER:
@@ -33,13 +33,13 @@ jobs:
       - name: Install Copilot deps
         working-directory: copilot_${{inputs.COPILOT_VER}}_deps
         run: |
-          npm install sqlite3@${{ inputs.SQLITE3_VER }} kerberos@${{ inputs.KERBEROS_VER }} @vscode/policy-watcher@${{ inputs.VSCODE_POL_WAT_VER }}
+          npm install kerberos@${{ inputs.KERBEROS_VER }} @vscode/policy-watcher@${{ inputs.VSCODE_POL_WAT_VER }} @parcel/watcher@${{ inputs.PARCEL_WAT_VER }}
       - name: Remove cruft
         working-directory: copilot_${{inputs.COPILOT_VER}}_deps
         run: |
           rm node_modules/*/build/Release/*.node
+          rm node_modules/@parcel/watcher-linux-x64-*/watcher.node
           rm node_modules/@vscode/*/build/Release{,/obj.target}/vscode-policy-watcher.node
-          rm node_modules/sqlite3/deps/*.tar.gz
       - name: Packup
         run: |
           tar caf /tmp/copilot-language-server-${{inputs.COPILOT_VER}}_deps.tar.xz copilot_${{inputs.COPILOT_VER}}_deps
@@ -50,9 +50,9 @@ jobs:
           name: copilot-language-server ${{inputs.COPILOT_VER}}
           body: |
             Copilot Language Server: [${{inputs.COPILOT_VER}}](https://github.com/github/copilot-language-server-release/releases/tag/${{inputs.COPILOT_VER}})
-            sqlite3: ${{ inputs.SQLITE3_VER }}
             kerberos: ${{ inputs.KERBEROS_VER }}
             @vscode/policy-watcher: ${{ inputs.VSCODE_POL_WAT_VER }}
+            @parcel/watcher: ${{ inputs.PARCEL_WAT_VER }}
           tag_name:  copilot-language-server-${{inputs.COPILOT_VER}}
           files: |
             /tmp/copilot-language-server-${{inputs.COPILOT_VER}}_deps.tar.xz
