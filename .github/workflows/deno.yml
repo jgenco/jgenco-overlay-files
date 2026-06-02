@@ -16,26 +16,55 @@ jobs:
         run: |
           wget https://github.com/denoland/deno/archive/refs/tags/v${{inputs.DENO_VER}}.tar.gz
           tar xaf v${{inputs.DENO_VER}}.tar.gz
-      - name: Install pycargoebuild
-        working-directory: deno-${{inputs.DENO_VER}}/cli
-        run: |
-          pip install pycargoebuild
-          wget https://github.com/gentoo/gentoo/raw/refs/heads/master/metadata/license-mapping.conf
-          echo "DIST_DIR=${GITHUB_WORKSPACE}/pycargo" >> $GITHUB_ENV
-      - name: Run Pycargoebuild
-        working-directory: deno-${{inputs.DENO_VER}}/cli
-        run: |
-          python -m pycargoebuild -d ${{env.DIST_DIR}} -cf -l license-mapping.conf
-          echo "Deno - ${{inputs.DENO_VER}}" >> ${{env.DIST_DIR}}/body.txt
-          echo '```' >> ${{env.DIST_DIR}}/body.txt
-          grep -Pzo '# Dependent crate licenses.*\nLICENSE\+="([^"]*\n?)+"\n' deno-${{inputs.DENO_VER}}.ebuild | sed 's/\x00//' >> ${{env.DIST_DIR}}/body.txt
-          echo '```' >> ${{env.DIST_DIR}}/body.txt
-# Upload Files
-      - name: Publish
-        uses: softprops/action-gh-release@v1
+          #A simple dumb way to add sqlite_extension's deps to the main lock file ~2.6M
+          #Should look into making a multiple vendor files version someday
+          grep "version = 4" -v deno-${{inputs.DENO_VER}}/tests/sqlite_extension/Cargo.lock >> deno-${{inputs.DENO_VER}}/Cargo.lock
+
+      - name: Checkout Current
+        uses: actions/checkout@v5
         with:
-          name: Deno ${{inputs.DENO_VER}}
-          body_path: ${{env.DIST_DIR}}/body.txt
-          tag_name:  deno-${{inputs.DENO_VER}}
-          files: |
-            ${{env.DIST_DIR}}/deno-${{inputs.DENO_VER}}-crates.tar.xz
+          path: file_repo
+
+      - name: Set Deno variables
+        working-directory: deno-${{inputs.DENO_VER}}
+        run: |
+          DENO_STD_HASH=$(curl https://api.github.com/repos/denoland/deno/contents/tests/util/std?ref=v${{inputs.DENO_VER}} | jq .sha -r)
+          NODE_TEST_HASH=$(curl https://api.github.com/repos/denoland/deno/contents/tests/node_compat/runner/suite?ref=v${{inputs.DENO_VER}} | jq .sha -r)
+          V8_VER=$(grep -Pzo '\[package\]\]\nname = "v8"\nversion = "[0-9.]+"' Cargo.lock |tr -d \\000|grep -o "[0-9]\+\.[0-9.]\+")
+          V8_HASH=$(curl https://api.github.com/repos/denoland/rusty_v8/contents/v8?ref=v${V8_VER} | jq .sha -r)
+          CHROMIUM_CRATES_HASH_GH=$(curl https://api.github.com/repos/denoland/rusty_v8/contents/third_party/rust?ref=v${V8_VER} | jq .sha -r)
+          CHROMIUM_CRATES_HASH_DEPS=$(curl https://raw.githubusercontent.com/denoland/v8/${V8_HASH}/DEPS |grep src\/third_party\/rust  |grep -Eo "[0-9a-f]{40}")
+          RUST_MIN_VER=$(grep channel rust-toolchain.toml |grep -o "[0-9.]\+")
+
+          [[ ${DENO_STD_HASH} =~ ^[0-9a-f]+$ ]]
+          [[ ${NODE_TEST_HASH} =~ ^[0-9a-f]+$ ]]
+          [[ ${CHROMIUM_CRATES_HASH_GH} =~ ^[0-9a-f]+$ ]]
+          [[ ${CHROMIUM_CRATES_HASH_DEPS} =~ ^[0-9a-f]+$ ]]
+
+          echo "DENO_STD_HASH=${DENO_STD_HASH}" >> $GITHUB_ENV
+          echo "NODE_TEST_HASH=${NODE_TEST_HASH}"  >> $GITHUB_ENV
+          echo "V8_VER=${V8_VER}" >> $GITHUB_ENV
+          echo "CHROMIUM_CRATES_HASH_GH=${CHROMIUM_CRATES_HASH_GH}" >> $GITHUB_ENV
+          echo "CHROMIUM_CRATES_HASH_DEPS=${CHROMIUM_CRATES_HASH_DEPS}" >> $GITHUB_ENV
+          echo "RUST_MIN_VER=${RUST_MIN_VER}" >> $GITHUB_ENV
+
+          echo "BODY_TXT_FILE=${GITHUB_WORKSPACE}/body.txt" >> $GITHUB_ENV
+
+      - name: Build Deno Body
+        run: |
+          echo '```' >> ${{env.BODY_TXT_FILE}}
+          echo "DENO_STD_HASH=\"${{env.DENO_STD_HASH}}\"" >> ${{env.BODY_TXT_FILE}}
+          echo "NODE_TEST_HASH=\"${{env.NODE_TEST_HASH}}\"" >> ${{env.BODY_TXT_FILE}}
+          echo "CHROMIUM_CRATES_HASH=\"${{env.CHROMIUM_CRATES_HASH_GH}}\"" >> ${{env.BODY_TXT_FILE}}
+          [[ ${{env.CHROMIUM_CRATES_HASH_GH}} != ${{env.CHROMIUM_CRATES_HASH_DEPS}} ]] && \
+            echo "CHROMIUM_CRATES_HASH=\"${{env.CHROMIUM_CRATES_HASH_DEPS}}\" #HASH MISSMATCH"  >> ${{env.BODY_TXT_FILE}}
+          echo "V8_VER=\"${{env.V8_VER}}\"" >> ${{env.BODY_TXT_FILE}}
+          echo "RUST_MIN_VER=\"${{env.RUST_MIN_VER}}\"" >> ${{env.BODY_TXT_FILE}}
+          echo '```' >> ${{env.BODY_TXT_FILE}}
+      - name: Pycargobuild
+        uses: ./file_repo/.github/actions/pycargoebuild
+        with:
+          cargo-root-path: "deno-${{inputs.DENO_VER}}/cli"
+          crate-name: "deno"
+          crate-version: ${{inputs.DENO_VER}}
+          body-path: ${{env.BODY_TXT_FILE}}
