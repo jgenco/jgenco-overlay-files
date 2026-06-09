@@ -4,10 +4,20 @@ inputs:
   cargo-root-path:
     description: 'Path where Cargo.toml lives'
     required: true
+
+  crate-name:
+    description: 'Crate Name (used for ebuild filename)'
+    required: true
+
+  crate-version:
+    description: 'Crate Version (used for ebuild filename)'
+    required: true
+
   dist-directory:
     description: 'Location used to store crates'
     required: false
     default: ''
+
   body-path:
     description: 'Location used to store body for updload'
     required: false
@@ -36,8 +46,8 @@ runs:
       working-directory: ${{env.CRATE_PATH}}
       shell: bash
       run: |
-        CRATE_NAME=$(grep "^name = " -m1 Cargo.toml |grep -Eo '"[A-Za-z_0-9-]+"'|tr -d \")
-        CRATE_VER=$(grep "^version = " -m1 Cargo.toml |grep -Eo "[0-9.]+")
+        CRATE_NAME=${{inputs.crate-name}}
+        CRATE_VER=${{inputs.crate-version}}
         CRATE_NV="${CRATE_NAME}-${CRATE_VER}"
 
         echo "CRATE_NAME=${CRATE_NAME}" >> $GITHUB_ENV
@@ -70,12 +80,12 @@ runs:
 
         if grep -q WARNING ${{env.CRATE_PATH}}/stdout;then
           echo '```' >> ${{env.BODY_TXT_FILE}}
-          grep WARNING ${{env.CRATE_PATH}}/stdout >> ${{env.BODY_TXT_FILE}}
+          awk 'BEGIN {p = 0}     /^WARNING/ {p=1} /ebuild$/ {p=0} {if(p) print $0 }' ${{env.CRATE_PATH}}/stdout >> ${{env.BODY_TXT_FILE}}
           echo -e '\n```' >> ${{env.BODY_TXT_FILE}}
         fi
 # Upload Files
     - name: Publish
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         name: ${{env.CRATE_NAME}} ${{env.CRATE_VER}}
         body_path: ${{env.BODY_TXT_FILE}}
