@@ -2,61 +2,20 @@ name: typst-gather
 on:
   workflow_dispatch:
      inputs:
-      release_type:
-        description: 'Quarto Release Type'
-        default: pre-release
-        type: choice
-        options:
-          - pre-release
-          - release
-          - live
-      version:
-       description: 'Quarto Version'
-       type: string
+      TYPST_GATHER_VER:
+        description: 'Typst-gather version'
+        type: string
+        required: true
 jobs:
   builds:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-# Get Quarto Live
-      - name: Checkout Quarto-cli
-        if: ${{ inputs.release_type == 'live' }}
-        uses: actions/checkout@v5
-        with: 
-          repository: quarto-dev/quarto-cli
-          path: quarto-cli
-      - name: Setup Vars
-        if: ${{ inputs.release_type == 'live' }}
-        working-directory: quarto-cli
+      - name: Download/Extract typst-gather
         run: |
-          mkdir quarto-cli/deno_cache
-          echo "quarto_cli_ver=99.9.9_$(date +%Y%m%d)" >> $GITHUB_ENV
-          echo "quarto_cli_sha=`git rev-parse HEAD`"   >> $GITHUB_ENV
-# Get Quarto Version
-      - name: Download Quarto-cli
-        if: ${{ inputs.release_type != 'live' }}
-        run: |
-          echo "${{inputs.release_type}} = ${{ inputs.release_type }} ; ${{ inputs.version }}"
-          quarto_version="${{inputs.version}}"
-          #https://github.com/quarto-dev/quarto-cli/discussions/5423#discussioncomment-5837886
-          if [[ ${quarto_version} == "" ]];then
-            case ${{inputs.release_type}} in
-              "pre-release")
-                quarto_version=$(curl -sL https://api.github.com/repos/quarto-dev/quarto-cli/releases|jq "map(select(.prerelease == true ))[0].name" -r |tr -d 'v');;
-              "release")
-                quarto_version=$(curl -sL https://api.github.com/repos/quarto-dev/quarto-cli/releases|jq "map(select(.prerelease == false))[0].name" -r |tr -d 'v');;
-               *)
-                die;;
-            esac
-          fi
-          wget https://github.com/quarto-dev/quarto-cli/archive/refs/tags/v${quarto_version}.tar.gz
-          mkdir quarto-cli
-          tar xaf v${quarto_version}.tar.gz --strip-components=1 -C quarto-cli
-          mkdir quarto-cli/deno_cache quarto-cli/notes
-          echo "quarto_cli_ver=${quarto_version}"                                             >> $GITHUB_ENV
-          echo "quarto_cli_sha=$(gunzip -c v${quarto_version}.tar.gz |git get-tar-commit-id)" >> $GITHUB_ENV
-      #Checkout git sources
+          wget https://github.com/quarto-dev/typst-gather/archive/refs/tags/v${{inputs.TYPST_GATHER_VER}}.tar.gz
+          tar xaf v${{inputs.TYPST_GATHER_VER}}.tar.gz
       - name: Checkout Current
         uses: actions/checkout@v5
         with:
@@ -64,5 +23,6 @@ jobs:
       - name: Pycargobuild
         uses: ./file_repo/.github/actions/pycargoebuild
         with:
-          cargo-root-path: "quarto-cli/package/typst-gather"
-
+          cargo-root-path: "typst-gather-${{inputs.TYPST_GATHER_VER}}"
+          crate-name: "typst-gather"
+          crate-version: ${{inputs.TYPST_GATHER_VER}}
