@@ -37,7 +37,7 @@ jobs:
         run: |
           wget https://chromium.googlesource.com/chromium/src/third_party/rust/+archive/${{env.CHROMIUM_CRATES_HASH_GH}}.tar.gz
           tar xaf ${{env.CHROMIUM_CRATES_HASH_GH}}.tar.gz
-          tar caf v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_8}}.tar.xz  chromium_crates_io/
+          tar caf v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_GH_8}}.tar.xz  chromium_crates_io/
 
       - name: Release
         uses: softprops/action-gh-release@v3
@@ -46,4 +46,4 @@ jobs:
           body_path: body.txt
           tag_name:  deno-chrome-${{inputs.DENO_VER}}
           files: |
-            v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_8}}.tar.xz
+            v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_GH_8}}.tar.xz
