@@ -1,0 +1,49 @@
+name: v8_chromium_crates_io
+on:
+  workflow_dispatch:
+    inputs:
+      DENO_VER:
+        description: 'Deno version'
+        type: string
+        required: true
+jobs:
+  builds:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Get Chrome hash
+        run: |
+          curl https://raw.githubusercontent.com/denoland/deno/refs/tags/v${{inputs.DENO_VER}}/Cargo.toml -o Cargo.toml
+          V8_VER=$(grep '^v8 = ' Cargo.toml |sed -E 's/.*version = "([0-9.]+)".*/\1/')
+          V8_HASH=$(curl https://api.github.com/repos/denoland/rusty_v8/contents/v8?ref=v${V8_VER} | jq .sha -r| grep -Eo "[0-9a-f]{40}")
+          [[ ${V8_HASH} =~ ^[0-9a-f]{40}$ ]]
+
+          CHROMIUM_CRATES_HASH_GH=$(curl https://api.github.com/repos/denoland/rusty_v8/contents/third_party/rust?ref=v${V8_VER} | jq .sha -r | grep -Eo "[0-9a-f]{40}")
+          CHROMIUM_CRATES_HASH_DEPS=$(curl https://raw.githubusercontent.com/denoland/v8/${V8_HASH}/DEPS |grep src\/third_party\/rust  |grep -Eo "[0-9a-f]{40}")
+
+          [[ ${CHROMIUM_CRATES_HASH_GH} =~ ^[0-9a-f]{40}$ ]]
+          [[ ${CHROMIUM_CRATES_HASH_DEPS} =~ ^[0-9a-f]{40}$ ]]
+          [[ ${CHROMIUM_CRATES_HASH_GH} == ${CHROMIUM_CRATES_HASH_DEPS} ]]
+
+          echo "V8_VER=${V8_VER}"   >> body.txt
+          echo "V8_HASH=${V8_HASH}" >> body.txt
+          echo "CHROMIUM_CRATES_HASH_GH=${CHROMIUM_CRATES_HASH_GH}" >> body.txt
+
+          echo "CHROMIUM_CRATES_HASH_GH=${CHROMIUM_CRATES_HASH_GH}" >> $GITHUB_ENV
+          echo "CHROMIUM_CRATES_HASH_GH_8=${CHROMIUM_CRATES_HASH_GH:0:8}" >> $GITHUB_ENV
+
+      - name: Download and tarball
+        run: |
+          wget https://chromium.googlesource.com/chromium/src/third_party/rust/+archive/${{env.CHROMIUM_CRATES_HASH_GH}}.tar.gz
+          tar xaf ${{env.CHROMIUM_CRATES_HASH_GH}}.tar.gz
+          tar caf v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_8}}.tar.xz  chromium_crates_io/
+
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: Deno Chrome ${{inputs.DENO_VER}}
+          body_path: body.txt
+          tag_name:  deno-chrome-${{inputs.DENO_VER}}
+          files: |
+            v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_8}}.tar.xz
