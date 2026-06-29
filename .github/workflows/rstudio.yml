@@ -156,7 +156,7 @@ jobs:
         run: XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-electron-node_modules.tar.xz node_modules/
 # Upload Files
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           name: Rstudio ${{env.rstudio_ver}}
           body_path: ${{env.body_file}}
