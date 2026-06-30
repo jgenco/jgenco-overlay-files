@@ -22,7 +22,7 @@ jobs:
 # Get Quarto Live
       - name: Checkout Quarto-cli
         if: ${{ inputs.release_type == 'live' }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with: 
           repository: quarto-dev/quarto-cli
           path: quarto-cli
@@ -121,7 +121,7 @@ jobs:
 
 # Upload Files
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           name: Quarto-Cli ${{env.quarto_cli_ver}}
           body: |
