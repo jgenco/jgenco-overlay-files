@@ -19,11 +19,11 @@ jobs:
           sudo apt install -y libfontconfig1-dev
 #Checkout git sources
       - name: Checkout Current
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           path: file_repo
       - name: Checkout Current
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with: 
           repository: rstudio/rstudio
           ref: ${{ inputs.RSTUDIO_REF }}
@@ -35,7 +35,7 @@ jobs:
           quarto_branch=$(grep '^ \+git clone --branch' dependencies/common/install-panmirror |grep -o "branch [a-z/-]\+"|sed "s/branch //")
           echo "quarto_branch=${quarto_branch:-main}" >> $GITHUB_ENV
       - name: Checkout Current
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           repository: quarto-dev/quarto
           ref: ${{env.quarto_branch}}
