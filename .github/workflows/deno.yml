@@ -21,7 +21,7 @@ jobs:
           grep "version = 4" -v deno-${{inputs.DENO_VER}}/tests/sqlite_extension/Cargo.lock >> deno-${{inputs.DENO_VER}}/Cargo.lock
 
       - name: Checkout Current
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: file_repo
 
