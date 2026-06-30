@@ -23,12 +23,15 @@ jobs:
           tar xaf v${{inputs.TYPST_VER}}.tar.gz
       #Checkout git sources
       - name: Checkout Current
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: file_repo
       - name: Pycargobuild
         uses: ./file_repo/.github/actions/pycargoebuild
         with:
           cargo-root-path: "typst-${{inputs.TYPST_VER}}/crates/typst-cli"
+          crate-name: "typst"
+          crate-version: ${{inputs.TYPST_VER}}
+
 
 
