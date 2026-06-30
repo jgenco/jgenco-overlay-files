@@ -18,10 +18,13 @@ jobs:
           tar xaf ${{inputs.AIR_VER}}.tar.gz
       #Checkout git sources
       - name: Checkout Current
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: file_repo
       - name: Pycargobuild
         uses: ./file_repo/.github/actions/pycargoebuild
         with:
           cargo-root-path: "air-${{inputs.AIR_VER}}/crates/air"
+          crate-name: "air"
+          crate-version: ${{inputs.AIR_VER}}
+
