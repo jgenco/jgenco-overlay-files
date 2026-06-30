@@ -53,7 +53,7 @@ jobs:
           wget https://github.com/quarto-dev/quarto-cli/archive/refs/tags/v${quarto_version}.tar.gz
           mkdir quarto-cli
           tar xaf v${quarto_version}.tar.gz --strip-components=1 -C quarto-cli
-          mkdir quarto-cli/deno_cache
+          mkdir quarto-cli/deno_cache quarto-cli/notes
           echo "quarto_cli_ver=${quarto_version}"                                             >> $GITHUB_ENV
           echo "quarto_cli_sha=$(gunzip -c v${quarto_version}.tar.gz |git get-tar-commit-id)" >> $GITHUB_ENV
 # Lets Go!
@@ -67,26 +67,23 @@ jobs:
           unzip deno-x86_64-unknown-linux-gnu.zip
           echo "deno_exe=${GITHUB_WORKSPACE}/deno" >> $GITHUB_ENV
 
+#TODO: NOW letting quarto handle building quarto-preview
+      - name: Disable Building quarto-preview
+        if: false
+        working-directory: quarto-cli/src/webui/quarto-preview
+        run: |
+          #stop quarto build process from building quarto-preview - if needed in the future
+          rm deno.lock build.ts
+          touch build.ts
 #Build Quarto like normal
       - name: Build Quarto
         if: true
         working-directory: quarto-cli
         run: |
-          pushd src/webui/quarto-preview
-          #overlay dirs
-          ln -s ../../../deno_cache x86_64
-          #stop quarto build process from building quarto-preview - if needed in the future
-          rm deno.lock build.ts
-          touch build.ts
-          popd
-
           pushd package/src
-          #Note this will set DENO_DIR to src/webui/quarto-preview/x86_64 and package/src/x86_64/
-          #overlay dirs
-          ln -s ../../deno_cache x86_64
           #./configure probably does this stuff
           ln -s pkg-working ../dist
-          export DENO_DIR=x86_64
+          export DENO_DIR=${GITHUB_WORKSPACE}/quarto-cli/deno_cache
           QUARTO_DENO="${deno_exe}" ./quarto-bld prepare-dist --set-version ${{env.quarto_cli_ver}} --log-level info
           #echo "deno_exe=${GITHUB_WORKSPACE}/quarto-cli/package/pkg-working/bin/tools/x86_64/deno" >> $GITHUB_ENV
           popd
@@ -97,23 +94,30 @@ jobs:
         working-directory: quarto-cli
         run: |
           #DENO_DIR="src/resources/deno_std/cache"
-          DENO_DIR="cache" ${deno_exe} cache --unstable-ffi --lock src/resources/deno_std/deno_std.lock package/scripts/deno_std/deno_std.ts
+          DENO_DIR="cache" ${deno_exe} cache --allow-import --unstable-ffi --lock src/resources/deno_std/deno_std.lock package/scripts/deno_std/deno_std.ts
 
-# Build vendor file
+# Build quarto-preview file
       - name: Build quarto-preview
         if: false
         working-directory: quarto-cli/src/webui/quarto-preview
         run: |
           #overlay dirs
-          [[ ! -L x86_64 ]] && ln -s ../../../quarto-cli/deno_cache x86_64
-          DENO_DIR=x86_64 ${deno_exe} run -A build.ts
-          find x86_64/npm -type f -name "esbuild*" -size +1M -delete -print
+          DENO_DIR=${GITHUB_WORKSPACE}/quarto-cli/deno_cache ${deno_exe} run -A build.ts
+
+# Remove binaries
+      - name: Remove binaries
+        working-directory: quarto-cli
+        run: |
+          #find $path -executable -type f -exec file {} +
+          find src/webui/quarto-preview/node_modules/ deno_cache -name "esbuild" -size +1M -delete -print >> notes/deleted_files
+          find src/webui/quarto-preview/node_modules/ deno_cache -name "*.o"    -delete -print >> notes/deleted_files
+          find src/webui/quarto-preview/node_modules/ deno_cache -name "*.node" -delete -print >> notes/deleted_files
 
 #Build release
       - name: Build release files
         working-directory: quarto-cli
         run: |
-          tar caf /tmp/quarto-cli-${{env.quarto_cli_ver}}-deno_vendor.tar.xz cache/deps deno_cache/deps #deno_cache/npm
+          tar caf /tmp/quarto-cli-${{env.quarto_cli_ver}}-deno_vendor.tar.xz notes cache/remote deno_cache/{npm,remote} -C src/webui/quarto-preview node_modules
 
 # Upload Files
       - name: Release
@@ -126,4 +130,3 @@ jobs:
           tag_name:  quarto-cli-${{env.quarto_cli_ver}}
           files: |
             /tmp/quarto-cli-${{env.quarto_cli_ver}}-deno_vendor.tar.xz
-            
