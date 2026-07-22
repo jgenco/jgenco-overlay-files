@@ -11,10 +11,10 @@ Edited slightly from https://src.fedoraproject.org/rpms/rstudio/blob/rawhide/f/p
    ],
    "scripts": {
      "build": "turbo run build",
-@@ -17,13 +16,5 @@
-     "lint": "turbo run lint",
-     "format": "prettier --write \"**/*.{ts,tsx}\"",
-     "watch": "concurrently 'tsc --watch --noEmit --project apps/writer/tsconfig.json' 'tsc --watch --noEmit  --project packages/writer-server/tsconfig.json'"
+@@ -21,13 +20,5 @@
+   },
+   "resolutions": {
+     "linkify-it": "5.0.2"
 -  },
 -  "devDependencies": {
 -    "@vscode/test-cli": "^0.0.11",
