@@ -1,0 +1,12 @@
+--- a/src/node/desktop/package.json
++++ b/src/node/desktop/package.json
+@@ -76,7 +76,8 @@
+     "ts-node": "10.9.2",
+     "typescript": "6.0.3",
+     "vue-loader": "17.4.2",
+-    "webpack": "5.108.4"
++    "webpack": "5.108.4",
++    "yargs":"16.2.2"
+   },
+   "dependencies": {
+     "@electron/fuses": "2.1.3",

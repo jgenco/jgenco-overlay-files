@@ -108,9 +108,9 @@ jobs:
             } >> ${{env.body_file}}
 #Setup Node-22
       - name: Setup node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
 # Build Quarto
 # This was inspired by  https://src.fedoraproject.org/rpms/rstudio
       - name: Remove non-Panmirror folders
@@ -122,7 +122,7 @@ jobs:
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
           esbuild_version="0.15.6"
-          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/{panmirror-base,node-addon-api.clang21}.patch .
+          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/panmirror-base.patch .
           patch -p1 -i panmirror-base.patch
           sed -i "/eslint/d"  apps/{panmirror,vscode-markdownit}/package.json packages/*/package.json
           sed -i "s/\"esbuild\":.*/\"esbuild\": \"${esbuild_version}\",/g" packages/build/package.json
@@ -133,27 +133,34 @@ jobs:
       - name: Clean up Quarto-Panmirror node_modules
         working-directory: rstudio/src/gwt/lib/quarto
         run: |
-          patch -p1 -i node-addon-api.clang21.patch
           find node_modules packages/*/node_modules -name "esbuild" -size +1M -delete -print
           echo "Deleteing binaries in panmirror"
           find node_modules packages/*/node_modules -name "*.node" -delete -print
           find node_modules packages/*/node_modules -name "*.o" -delete -print
           XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-panmirror-node_modules.tar.xz node_modules/ packages/*/node_modules apps/panmirror/node_modules panmirror.patch panmirror-base.patch
 # Build RStudio Electron
+      - name: Fix Electron package.json
+        working-directory: rstudio
+        run: |
+          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/rstudio-yargs_fix.patch src/node/desktop
+          patch -p1 -i src/node/desktop/rstudio-yargs_fix.patch
       - name: Build Electron node_modules
         working-directory: rstudio/src/node/desktop
         run: npm install
+      - name: Make Electron package-lock.json patch
+        working-directory: rstudio/src/node/desktop
+        run: git diff package-lock.json >> rstudio-yargs_fix.patch
       - name: Clean up node_modules
         working-directory: rstudio/src/node/desktop
         run: |
           sed -i "s/VERSION 3.5/VERSION 3.5...3.10/" node_modules/nan/CMakeLists.txt
-          rm -r node_modules/electron/dist/*
+          #rm -r node_modules/electron/dist/*
           echo "Deleteing binaries in electron"
           find node_modules/ -name "*.node" -delete -print
           find node_modules/ -name "*.o" -delete -print
       - name: Make Rstudio-Electron node_modules tarball
         working-directory: rstudio/src/node/desktop
-        run: XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-electron-node_modules.tar.xz node_modules/
+        run: XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-electron-node_modules.tar.xz node_modules/ rstudio-yargs_fix.patch
 # Upload Files
       - name: Release
         uses: softprops/action-gh-release@v3
