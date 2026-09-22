@@ -55,12 +55,15 @@ jobs:
           flower=${flower,,}
           [[ $flower =~ ^[a-z\ ]+$ ]]
           base_commit=$(< version/base_commit/${flower/ /-}.BASE_COMMIT)
-          [[ $base_commit =~ ^[0-9a-f]+$ ]]
+          [[ $base_commit =~ ^[0-9a-f]{40}$ ]]
           my_pv+="$(git rev-list ${base_commit}..HEAD --count)"
           echo "rstudio_ver=${my_pv}"             >> $GITHUB_ENV
           echo "rstudio_sha=`git rev-parse HEAD`" >> $GITHUB_ENV
 
-          echo electron_ver=$(jq ".devDependencies.electron" src/node/desktop/package.json) >> $GITHUB_ENV
+          electron_ver="$(jq -r ".devDependencies.electron" src/node/desktop/package.json)"
+          [[ ${electron_ver} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "electron_ver=${electron_ver}" >> $GITHUB_ENV
+
           echo body_file="/tmp/body.txt" >> $GITHUB_ENV
       - name: Get/Set Quarto Version
         working-directory: rstudio/src/gwt/lib/quarto
@@ -89,7 +92,7 @@ jobs:
             echo -e '\n```'
 
             echo "P_PREBUILT=\"\${PN}-${{env.rstudio_ver}}\""
-            echo "DAILY_COMMIT=\"${{env.rstudio_sha}}\""
+            echo "#DAILY_COMMIT=\"\""
             echo "ELECTRON_VERSION=\"${{env.electron_ver}}\""
             echo "QUARTO_COMMIT=\"${{env.quarto_sha}}\""
             echo "QUARTO_BRANCH=\"${{env.quarto_branch}}\""
@@ -98,11 +101,11 @@ jobs:
 
             echo "GWT_VERSION=\"$(grep "^GWT_VERSION=" dependencies/common/install-gwt |grep -Eo "[0-9.a-z\-]+")\""
 
-            echo "#WEBSOCKETPP_VERSION=$(grep -Pzo 'dependency\(WEBSOCKETPP([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep VERSION|grep -o "\"[0-9.]\+\"")"
-            echo "WEBSOCKETPP_COMMIT=$(grep -Pzo 'dependency\(WEBSOCKETPP([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep REVISION|grep -o "\"[a-f0-9]\+\"")"
-            echo "#RAPIDJSON_VERSION=$(grep -Pzo 'dependency\(RAPIDJSON([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep VERSION|grep -o "\"[0-9.]\+\"")"
-            echo "RAPIDJSON_COMMIT=$(grep -Pzo 'dependency\(RAPIDJSON([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep REVISION|grep -o "\"[a-f0-9]\+\"")"
-            echo "#COPILOT_VERSION=$(grep "^COPILOT_VERSION=" dependencies/common/install-copilot-language-server |grep -Eo "\"[0-9.]+\"")"
+            #echo "#WEBSOCKETPP_VERSION=$(grep -Pzo 'dependency\(WEBSOCKETPP([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep VERSION|grep -o "\"[0-9.]\+\"")"
+            #echo "WEBSOCKETPP_COMMIT=$(grep -Pzo 'dependency\(WEBSOCKETPP([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep REVISION|grep -o "\"[a-f0-9]\+\"")"
+            #echo "#RAPIDJSON_VERSION=$(grep -Pzo 'dependency\(RAPIDJSON([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep VERSION|grep -o "\"[0-9.]\+\"")"
+            #echo "RAPIDJSON_COMMIT=$(grep -Pzo 'dependency\(RAPIDJSON([^)]*\n?)+\)' src/cpp/ext/CMakeLists.txt|tr "\0" "\n"|grep REVISION|grep -o "\"[a-f0-9]\+\"")"
+            #echo "#COPILOT_VERSION=$(grep "^COPILOT_VERSION=" dependencies/common/install-copilot-language-server |grep -Eo "\"[0-9.]+\"")"
 
             echo -e '\n```'
             } >> ${{env.body_file}}
