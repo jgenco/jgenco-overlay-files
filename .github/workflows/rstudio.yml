@@ -32,7 +32,7 @@ jobs:
       - name: Get/Set Quarto branch
         working-directory: rstudio
         run: |
-          quarto_branch=$(grep '^ \+git clone --branch' dependencies/common/install-panmirror |grep -o "branch [a-z/-]\+"|sed "s/branch //")
+          quarto_branch=$(grep PANMIRROR_BRANCH= dependencies/common/install-panmirror| sed "s/PANMIRROR_BRANCH=//"|grep -Eo "release/[a-z-]+")
           echo "quarto_branch=${quarto_branch:-main}" >> $GITHUB_ENV
       - name: Checkout Current
         uses: actions/checkout@v7
