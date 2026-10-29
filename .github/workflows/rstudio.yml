@@ -147,6 +147,10 @@ jobs:
         run: |
           cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/rstudio-yargs_fix.patch src/node/desktop
           patch -p1 -i src/node/desktop/rstudio-yargs_fix.patch
+      - name: update Electron
+        working-directory: rstudio/src/node/desktop
+        run: |
+          sed "s/42\\.11\\.1/42.11.16/;s/43\\.7\\.7/43.8.1/" -i package.json ${{env.body_file}}
       - name: Build Electron node_modules
         working-directory: rstudio/src/node/desktop
         run: npm install
