@@ -142,21 +142,26 @@ jobs:
           find node_modules packages/*/node_modules -name "*.o" -delete -print
           XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-panmirror-node_modules.tar.xz node_modules/ packages/*/node_modules apps/panmirror/node_modules panmirror.patch panmirror-base.patch
 # Build RStudio Electron
-      - name: Fix Electron package.json
-        working-directory: rstudio
+# Fix for nodejs 26
+      - name: Fix Electron yargs
+        working-directory: rstudio/src/node/desktop
         run: |
-          cp ${GITHUB_WORKSPACE}/file_repo/sci-mathematics/rstudio/rstudio-yargs_fix.patch src/node/desktop
-          patch -p1 -i src/node/desktop/rstudio-yargs_fix.patch
+          jq '.devDependencies|= . + {"yargs":"17.7.3"}' package.json > package.json.new
+          mv package.json{.new,}
+#fix for certs
       - name: update Electron
         working-directory: rstudio/src/node/desktop
         run: |
           sed "s/42\\.11\\.1/42.11.16/;s/43\\.7\\.7/43.8.1/" -i package.json ${{env.body_file}}
+
       - name: Build Electron node_modules
         working-directory: rstudio/src/node/desktop
         run: npm install
+
       - name: Make Electron package-lock.json patch
         working-directory: rstudio/src/node/desktop
-        run: git diff package-lock.json >> rstudio-yargs_fix.patch
+        run: git diff package.json package-lock.json >> rstudio-electron_fix.patch
+
       - name: Clean up node_modules
         working-directory: rstudio/src/node/desktop
         run: |
@@ -167,7 +172,7 @@ jobs:
           find node_modules/ -name "*.o" -delete -print
       - name: Make Rstudio-Electron node_modules tarball
         working-directory: rstudio/src/node/desktop
-        run: XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-electron-node_modules.tar.xz node_modules/ rstudio-yargs_fix.patch
+        run: XZ_OPT=-9 tar caf /tmp/rstudio-${{env.rstudio_ver}}-electron-node_modules.tar.xz node_modules/ rstudio-electron_fix.patch
 # Upload Files
       - name: Release
         uses: softprops/action-gh-release@v3
