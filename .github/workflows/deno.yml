@@ -29,26 +29,44 @@ jobs:
         working-directory: deno-${{inputs.DENO_VER}}
         run: |
           DENO_STD_HASH=$(curl https://api.github.com/repos/denoland/deno/contents/tests/util/std?ref=v${{inputs.DENO_VER}} | jq .sha -r)
+          [[ ${DENO_STD_HASH} =~ ^[0-9a-f]{40}$ ]]
+
           NODE_TEST_HASH=$(curl https://api.github.com/repos/denoland/deno/contents/tests/node_compat/runner/suite?ref=v${{inputs.DENO_VER}} | jq .sha -r)
+          [[ ${NODE_TEST_HASH} =~ ^[0-9a-f]{40}$ ]]
+
           V8_VER=$(grep -Pzo '\[package\]\]\nname = "v8"\nversion = "[0-9.]+"' Cargo.lock |tr -d \\000|grep -o "[0-9]\+\.[0-9.]\+")
+
           V8_HASH=$(curl https://api.github.com/repos/denoland/rusty_v8/contents/v8?ref=v${V8_VER} | jq .sha -r)
+          [[ ${V8_HASH} =~ ^[0-9a-f]{40}$ ]]
+
           CHROMIUM_CRATES_HASH_GH=$(curl https://api.github.com/repos/denoland/rusty_v8/contents/third_party/rust?ref=v${V8_VER} | jq .sha -r)
           CHROMIUM_CRATES_HASH_DEPS=$(curl https://raw.githubusercontent.com/denoland/v8/${V8_HASH}/DEPS |grep src\/third_party\/rust  |grep -Eo "[0-9a-f]{40}")
           RUST_MIN_VER=$(grep channel rust-toolchain.toml |grep -o "[0-9.]\+")
 
-          [[ ${DENO_STD_HASH} =~ ^[0-9a-f]+$ ]]
-          [[ ${NODE_TEST_HASH} =~ ^[0-9a-f]+$ ]]
-          [[ ${CHROMIUM_CRATES_HASH_GH} =~ ^[0-9a-f]+$ ]]
-          [[ ${CHROMIUM_CRATES_HASH_DEPS} =~ ^[0-9a-f]+$ ]]
+
+          [[ ${CHROMIUM_CRATES_HASH_GH} =~ ^[0-9a-f]{40}$ ]]
+          [[ ${CHROMIUM_CRATES_HASH_DEPS} =~ ^[0-9a-f]{40}$ ]]
+          [[ ${CHROMIUM_CRATES_HASH_GH} == ${CHROMIUM_CRATES_HASH_DEPS} ]]
 
           echo "DENO_STD_HASH=${DENO_STD_HASH}" >> $GITHUB_ENV
           echo "NODE_TEST_HASH=${NODE_TEST_HASH}"  >> $GITHUB_ENV
           echo "V8_VER=${V8_VER}" >> $GITHUB_ENV
           echo "CHROMIUM_CRATES_HASH_GH=${CHROMIUM_CRATES_HASH_GH}" >> $GITHUB_ENV
-          echo "CHROMIUM_CRATES_HASH_DEPS=${CHROMIUM_CRATES_HASH_DEPS}" >> $GITHUB_ENV
+          echo "CHROMIUM_CRATES_HASH_GH_8=${CHROMIUM_CRATES_HASH_GH:0:8}" >> $GITHUB_ENV
           echo "RUST_MIN_VER=${RUST_MIN_VER}" >> $GITHUB_ENV
 
           echo "BODY_TXT_FILE=${GITHUB_WORKSPACE}/body.txt" >> $GITHUB_ENV
+
+      - name: Download and tarball chromium_crates
+        run: |
+          wget https://chromium.googlesource.com/chromium/src/third_party/rust/+archive/${{env.CHROMIUM_CRATES_HASH_GH}}.tar.gz
+          mkdir chrome_crates
+          tar xaf ${{env.CHROMIUM_CRATES_HASH_GH}}.tar.gz -C chrome_crates
+          opts="--sort=name \
+          --numeric-owner --owner=0 --group=0 --mode=go+u,go-w \
+          --mtime=@0 \
+          --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime"
+          LC_ALL=C tar caf v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_GH_8}}.tar.xz ${opts} -C chrome_crates chromium_crates_io/
 
       - name: Build Deno Body
         run: |
@@ -56,11 +74,10 @@ jobs:
           echo "DENO_STD_HASH=\"${{env.DENO_STD_HASH}}\"" >> ${{env.BODY_TXT_FILE}}
           echo "NODE_TEST_HASH=\"${{env.NODE_TEST_HASH}}\"" >> ${{env.BODY_TXT_FILE}}
           echo "CHROMIUM_CRATES_HASH=\"${{env.CHROMIUM_CRATES_HASH_GH}}\"" >> ${{env.BODY_TXT_FILE}}
-          [[ ${{env.CHROMIUM_CRATES_HASH_GH}} != ${{env.CHROMIUM_CRATES_HASH_DEPS}} ]] && \
-            echo "CHROMIUM_CRATES_HASH=\"${{env.CHROMIUM_CRATES_HASH_DEPS}}\" #HASH MISSMATCH"  >> ${{env.BODY_TXT_FILE}}
           echo "V8_VER=\"${{env.V8_VER}}\"" >> ${{env.BODY_TXT_FILE}}
           echo "RUST_MIN_VER=\"${{env.RUST_MIN_VER}}\"" >> ${{env.BODY_TXT_FILE}}
           echo '```' >> ${{env.BODY_TXT_FILE}}
+
       - name: Pycargobuild
         uses: ./file_repo/.github/actions/pycargoebuild
         with:
@@ -68,3 +85,4 @@ jobs:
           crate-name: "deno"
           crate-version: ${{inputs.DENO_VER}}
           body-path: ${{env.BODY_TXT_FILE}}
+          extra-files: v8_third_party_rust_${{env.CHROMIUM_CRATES_HASH_GH_8}}.tar.xz
