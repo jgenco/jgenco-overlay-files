@@ -22,6 +22,10 @@ inputs:
     description: 'Location used to store body for updload'
     required: false
     default: ''
+  extra-files:
+    description: 'Extra files to add'
+    required: false
+    default: ''
 runs:
   using: "composite"
   steps:
@@ -61,24 +65,27 @@ runs:
       working-directory: ${{env.CRATE_PATH}}
       shell: bash
       run: |
-        python -m pycargoebuild -d ${{env.DIST_DIR}} -cf -l ${GITHUB_WORKSPACE}/license-mapping.conf -o ${{env.EBUILD_FILE}} --crate-tarball-path ${{env.CRATES_FILE}} | tee stdout
+        python -m pycargoebuild -w -d ${{env.DIST_DIR}} -cf -l ${GITHUB_WORKSPACE}/license-mapping.conf -o ${{env.EBUILD_FILE}} --crate-tarball-path ${{env.CRATES_FILE}} | tee stdout
 
     - name: Build Pycargo Body
       shell: bash
       run: |
-        echo "${{env.CRATE_NAME}} - ${{env.CRATE_VER}}" >> ${{env.BODY_TXT_FILE}}
+        echo -e "\n# ${{env.CRATE_NAME}} - ${{env.CRATE_VER}}\n" >> ${{env.BODY_TXT_FILE}}
 
         if grep -q GIT_CRATES ${{env.EBUILD_FILE}};then
+          echo -e "\n## List of Git Crates\n" >> ${{env.BODY_TXT_FILE}}
           echo '```' >> ${{env.BODY_TXT_FILE}}
           grep -Pzo 'declare -A GIT_CRATES=\(\n(\t\[.*\n)+\)' ${{env.EBUILD_FILE}} | sed 's/\x00//' >> ${{env.BODY_TXT_FILE}}
           echo -e '\n```' >> ${{env.BODY_TXT_FILE}}
         fi
 
+        echo -e "\n## List of Licences\n" >> ${{env.BODY_TXT_FILE}}
         echo '```' >> ${{env.BODY_TXT_FILE}}
         grep -Pzo '# Dependent crate licenses.*\nLICENSE\+="([^"]*\n?)+"\n' ${{env.EBUILD_FILE}} | sed 's/\x00//' >> ${{env.BODY_TXT_FILE}}
         echo -e '\n```' >> ${{env.BODY_TXT_FILE}}
 
         if grep -q WARNING ${{env.CRATE_PATH}}/stdout;then
+          echo -e "\n## Pycargo WARNINGS\n" >> ${{env.BODY_TXT_FILE}}
           echo '```' >> ${{env.BODY_TXT_FILE}}
           awk 'BEGIN {p = 0}     /^WARNING/ {p=1} /ebuild$/ {p=0} {if(p) print $0 }' ${{env.CRATE_PATH}}/stdout >> ${{env.BODY_TXT_FILE}}
           echo -e '\n```' >> ${{env.BODY_TXT_FILE}}
@@ -92,3 +99,4 @@ runs:
         tag_name:  ${{env.CRATE_NV}}
         files: |
           ${{env.CRATES_FILE}}
+          ${{inputs.extra-files}}
